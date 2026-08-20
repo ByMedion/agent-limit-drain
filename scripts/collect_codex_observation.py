@@ -165,60 +165,61 @@ def collect_readings(codex_home: Path) -> List[Reading]:
         provider: Optional[str] = None
 
         try:
-            lines = path.read_text(encoding="utf-8").splitlines()
+            handle = path.open(encoding="utf-8")
         except OSError:
             continue
 
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-
-            rtype = record.get("type")
-            payload = record.get("payload") or {}
-
-            if rtype == "session_meta":
-                provider = payload.get("model_provider") or provider
-            elif rtype == "turn_context":
-                model = payload.get("model") or model
-                reasoning = payload.get("effort") or reasoning
-            elif rtype == "event_msg" and payload.get("type") == "token_count":
-                info = payload.get("info") or {}
-                rate_limits = payload.get("rate_limits") or {}
-                primary = rate_limits.get("primary")
-                if not primary:
-                    continue
-                used_percent = primary.get("used_percent")
-                limit_id = rate_limits.get("limit_id")
-                if used_percent is None or not limit_id:
-                    continue
-                turn_tokens = (info.get("last_token_usage") or {}).get("total_tokens")
-                if turn_tokens is None:
+        with handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
                     continue
                 try:
-                    ts = parse_timestamp(record["timestamp"])
-                except (KeyError, ValueError):
+                    record = json.loads(line)
+                except json.JSONDecodeError:
                     continue
 
-                readings.append(
-                    Reading(
-                        timestamp=ts,
-                        limit_id=limit_id,
-                        plan_type=rate_limits.get("plan_type"),
-                        used_percent=float(used_percent),
-                        window_minutes=primary.get("window_minutes"),
-                        resets_at=primary.get("resets_at"),
-                        turn_tokens=int(turn_tokens),
-                        model=model,
-                        reasoning=reasoning,
-                        provider=provider,
-                        source_file=path.name,
+                rtype = record.get("type")
+                payload = record.get("payload") or {}
+
+                if rtype == "session_meta":
+                    provider = payload.get("model_provider") or provider
+                elif rtype == "turn_context":
+                    model = payload.get("model") or model
+                    reasoning = payload.get("effort") or reasoning
+                elif rtype == "event_msg" and payload.get("type") == "token_count":
+                    info = payload.get("info") or {}
+                    rate_limits = payload.get("rate_limits") or {}
+                    primary = rate_limits.get("primary")
+                    if not primary:
+                        continue
+                    used_percent = primary.get("used_percent")
+                    limit_id = rate_limits.get("limit_id")
+                    if used_percent is None or not limit_id:
+                        continue
+                    turn_tokens = (info.get("last_token_usage") or {}).get("total_tokens")
+                    if turn_tokens is None:
+                        continue
+                    try:
+                        ts = parse_timestamp(record["timestamp"])
+                    except (KeyError, ValueError):
+                        continue
+
+                    readings.append(
+                        Reading(
+                            timestamp=ts,
+                            limit_id=limit_id,
+                            plan_type=rate_limits.get("plan_type"),
+                            used_percent=float(used_percent),
+                            window_minutes=primary.get("window_minutes"),
+                            resets_at=primary.get("resets_at"),
+                            turn_tokens=int(turn_tokens),
+                            model=model,
+                            reasoning=reasoning,
+                            provider=provider,
+                            source_file=path.name,
+                        )
                     )
-                )
 
     readings.sort(key=lambda r: r.timestamp)
     return readings
