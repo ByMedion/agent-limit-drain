@@ -208,7 +208,7 @@ def collect_readings(codex_home: Path) -> List[Reading]:
                     Reading(
                         timestamp=ts,
                         limit_id=limit_id,
-                        plan_type=primary.get("plan_type"),
+                        plan_type=rate_limits.get("plan_type"),
                         used_percent=float(used_percent),
                         window_minutes=primary.get("window_minutes"),
                         resets_at=primary.get("resets_at"),

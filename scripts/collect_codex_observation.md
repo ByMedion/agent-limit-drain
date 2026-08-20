@@ -54,10 +54,18 @@ Inside `payload.rate_limits.primary`:
   means an actual reset happened. See `RESET_JITTER_TOLERANCE_SECONDS`.
 - `window_minutes` — the limit's cycle length in minutes. `10080` = weekly, `300` =
   5-hour rolling; mapped to a `limit_type` label in `limit_type_for()`.
-- `plan_type` — frequently `null` in older CLI versions' logs. When missing, the script
-  doesn't abort: it prints a warning and leaves the CSV row's `plan` field blank for you
-  to fill in by hand (or pass `--plan` to skip that). Don't assume it'll always be
-  there.
+
+`plan_type` and `limit_id` live one level up, on `payload.rate_limits` itself, not on
+`payload.rate_limits.primary` — `rate_limits.get("plan_type")` /
+`rate_limits.get("limit_id")`, not `primary.get(...)`. An earlier version of this
+script read `primary.get("plan_type")`, which is always `null` on every rollout format
+seen so far (`plan_type` isn't nested under `primary` at all); that made the CSV row's
+`plan` field blank on every single run, not just on older CLI versions as assumed.
+
+- `plan_type` — absent (`null`) in logs from before Codex CLI started reporting it, and
+  can still be legitimately missing. When missing, the script doesn't abort: it prints
+  a warning and leaves the CSV row's `plan` field blank for you to fill in by hand (or
+  pass `--plan` to skip that).
 - `limit_id` — the account/quota this reading belongs to. **Not globally unique to
   one Codex install**: a machine used with more than one ChatGPT account/workspace
   will have multiple distinct `limit_id` values interleaved chronologically in the
